@@ -1,0 +1,15 @@
+{
+  "name": "spoolup",
+  "version": "1.0.0",
+  "description": "Time to first token and tokens per second for every Claude Code and Codex call, read from the logs both tools already write.",
+  "keywords": ["claude-code", "codex", "ttft", "tps", "latency", "llm", "menu-bar", "dashboard"],
+  "license": "MIT",
+  "author": "Carbene",
+  "homepage": "https://github.com/Carbene/spoolup#readme",
+  "repository": { "type": "git", "url": "git+https://github.com/Carbene/spoolup.git" },
+  "bugs": "https://github.com/Carbene/spoolup/issues",
+  "type": "module",
+  "bin": { "spoolup": "server/spoolup.mjs" },
+  "files": ["server/", "assets/logo.svg", "assets/AppIcon.png"],
+  "engines": { "node": ">=22" }
+}

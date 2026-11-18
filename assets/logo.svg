@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Spoolup mark: graphite squircle, two-agent tachometer (Claude orange → Codex blue), white needle, faint rate sparkline -->
+  <defs>
+    <linearGradient id="spoolup-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#34343a"/>
+      <stop offset="1" stop-color="#121214"/>
+    </linearGradient>
+    <linearGradient id="spoolup-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".14"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#spoolup-body)"/>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#spoolup-sheen)"/>
+  <rect x="2.5" y="2.5" width="59" height="59" rx="13.5" stroke="#fff" stroke-opacity=".08"/>
+  <polyline points="15,52 21,49.5 26,51 32,46.5 38,48.5 43,44.5 49,46" stroke="#fff" stroke-opacity=".28" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16.41 44 A18 18 0 0 1 30.74 17.04" stroke="#D9714C" stroke-width="6" stroke-linecap="round"/>
+  <path d="M33.26 17.04 A18 18 0 0 1 47.59 44" stroke="#3D8BE0" stroke-width="6" stroke-linecap="round"/>
+  <line x1="32" y1="35" x2="42.6" y2="24.4" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="32" cy="35" r="3.4" fill="#fff"/>
+</svg>

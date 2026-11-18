@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spoolup</title>
+<link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+<link rel="apple-touch-icon" href="/assets/AppIcon.png">
+<style>
+:root {
+  --bg: #f2f2f4; --panel: #ffffff; --panel-2: #f7f7f9; --line: #e4e4e8;
+  --ink: #1d1d1f; --ink-2: #5c5c63; --ink-3: #8e8e95; --grid: #ececf0;
+  --claude: #C9643F; --codex: #2F7FD6; --good: #2f9e57; --warn: #c98a12; --bad: #d1343a;
+  --shadow: 0 1px 2px rgba(0,0,0,.05), 0 0 0 1px rgba(0,0,0,.04);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111113; --panel: #1c1c1e; --panel-2: #232326; --line: #2c2c30;
+    --ink: #f2f2f4; --ink-2: #a8a8b0; --ink-3: #6e6e76; --grid: #2a2a2e;
+    --claude: #D9714C; --codex: #3D8BE0; --good: #3fbf6f; --warn: #e0a83a; --bad: #f0575c;
+    --shadow: 0 0 0 1px rgba(255,255,255,.04);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111113; --panel: #1c1c1e; --panel-2: #232326; --line: #2c2c30;
+  --ink: #f2f2f4; --ink-2: #a8a8b0; --ink-3: #6e6e76; --grid: #2a2a2e;
+  --claude: #D9714C; --codex: #3D8BE0; --good: #3fbf6f; --warn: #e0a83a; --bad: #f0575c;
+  --shadow: 0 0 0 1px rgba(255,255,255,.04);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased; padding: 20px 24px 40px; max-width: 1280px; margin: 0 auto;
+}
+.num { font-family: "SF Mono", ui-monospace, Menlo, monospace; font-variant-numeric: tabular-nums; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 15px; letter-spacing: -.01em; }
+.brand img { width: 24px; height: 24px; display: block; filter: drop-shadow(0 1px 2px rgba(0,0,0,.18)); }
+.status { display: flex; align-items: center; gap: 6px; color: var(--ink-3); font-size: 12px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-3); }
+.dot.on { background: var(--good); box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+.spacer { flex: 1; }
+.seg { display: inline-flex; background: var(--panel); border-radius: 8px; padding: 2px; box-shadow: var(--shadow); }
+.seg button {
+  border: 0; background: transparent; color: var(--ink-2); font: inherit; font-size: 12px; font-weight: 500;
+  padding: 4px 11px; border-radius: 6px; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--panel-2); color: var(--ink); box-shadow: 0 0 0 1px var(--line); }
+.icon-btn { border: 0; background: var(--panel); color: var(--ink-2); border-radius: 8px; width: 30px; height: 28px; cursor: pointer; box-shadow: var(--shadow); }
+
+.health { display: inline-flex; align-items: center; gap: 6px; border: 0; background: var(--panel); color: var(--ink-2); font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 8px; box-shadow: var(--shadow); cursor: pointer; }
+.health .dot { background: var(--good); }
+.health.warn .dot { background: var(--warn); }
+.health.error .dot { background: var(--bad); }
+.issues { margin-bottom: 16px; border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); background: var(--panel); }
+.issues:empty { display: none; }
+.issue { display: grid; grid-template-columns: 18px 1fr; gap: 2px 8px; padding: 10px 16px; border-top: 1px solid var(--line); }
+.issue:first-child { border-top: 0; }
+.issue .ic { grid-row: span 3; font-size: 13px; line-height: 1.35; text-align: center; font-weight: 700; }
+.issue.error { background: color-mix(in srgb, var(--bad) 9%, var(--panel)); }
+.issue.error .ic { color: var(--bad); }
+.issue.warn { background: color-mix(in srgb, var(--warn) 9%, var(--panel)); }
+.issue.warn .ic { color: var(--warn); }
+.issue.info .ic { color: var(--ink-3); }
+.issue .t { font-weight: 600; font-size: 12.5px; }
+.issue .d { color: var(--ink-2); font-size: 12px; }
+.issue pre { margin: 4px 0 0; font: 11px/1.4 "SF Mono", ui-monospace, Menlo, monospace; color: var(--ink-3); white-space: pre-wrap; word-break: break-all; }
+.issues details summary { padding: 8px 16px; font-size: 12px; color: var(--ink-3); cursor: pointer; border-top: 1px solid var(--line); }
+.issues > details:first-child summary { border-top: 0; }
+.agents { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+@media (max-width: 860px) { .agents { grid-template-columns: 1fr; } body { padding: 16px; } }
+.agent { background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; }
+.agent-head { display: flex; align-items: center; gap: 9px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.swatch { width: 10px; height: 10px; border-radius: 3px; }
+.agent-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.agent-head .sub { color: var(--ink-3); font-size: 12px; }
+.live-pill { margin-left: auto; font-size: 11px; color: var(--ink-3); display: flex; align-items: center; gap: 6px; }
+.live-pill .dot.on { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+
+.heroes { display: grid; grid-template-columns: repeat(3, 1fr); padding: 14px 16px 6px; gap: 8px; }
+.hero .label { font-size: 11px; color: var(--ink-3); text-transform: uppercase; letter-spacing: .04em; font-weight: 600; }
+.hero .value { font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; margin-top: 2px; }
+.hero .value small { font-size: 12px; color: var(--ink-3); font-weight: 500; margin-left: 2px; letter-spacing: 0; }
+.hero .hint { font-size: 11px; color: var(--ink-3); margin-top: 1px; }
+
+.section { padding: 10px 16px 12px; border-top: 1px solid var(--line); }
+.section-title { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: var(--ink-3); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 6px; }
+.section-title span:last-child { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.chart { position: relative; height: 92px; }
+.chart svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.chart .empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: 12px; }
+.tip {
+  position: absolute; pointer-events: none; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 6px 8px; font-size: 11px; white-space: nowrap; box-shadow: 0 4px 14px rgba(0,0,0,.18); z-index: 5; display: none;
+}
+.tip b { font-weight: 600; }
+.tip .muted { color: var(--ink-3); }
+
+.kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 10px; }
+.kv div { display: flex; flex-direction: column; }
+.kv .k { font-size: 11px; color: var(--ink-3); }
+.kv .v { font-size: 13px; font-weight: 550; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 11px; color: var(--ink-3); font-weight: 600; padding: 4px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 5px 6px; border-bottom: 1px solid var(--grid); white-space: nowrap; font-size: 12px; }
+tr:last-child td { border-bottom: 0; }
+th.r, td.r { text-align: right; }
+.bar-cell { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+.mini-bar { height: 4px; border-radius: 2px; opacity: .85; }
+
+.wide { margin-top: 16px; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); }
+.wide-head { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.wide-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.legend { display: flex; gap: 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 12px; height: 2px; border-radius: 1px; display: inline-block; }
+.legend { flex-wrap: wrap; justify-content: flex-end; }
+.prefs { display: flex; gap: 6px; }
+.lang-btn { font-size: 12px; font-weight: 600; letter-spacing: .02em; }
+tr.pickable { cursor: pointer; }
+.section-title .link { font: inherit; color: var(--ink-2); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.section-title .link:hover { color: var(--ink); }
+tr.picked td:first-child { box-shadow: inset 2px 0 0 var(--accent); }
+tr.pickable:hover td { background: var(--panel-2); }
+tr.picked td { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.trends { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.trends > div { padding: 12px 16px 14px; }
+.trends > div + div { border-left: 1px solid var(--line); }
+@media (max-width: 860px) { .trends { grid-template-columns: 1fr; } .trends > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+.trend { position: relative; height: 170px; }
+.trend svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.projects-body { overflow-x: auto; padding: 4px 10px 8px; }
+.calls { margin-top: 16px; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow); }
+.calls-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.calls-head h2 { margin: 0; font-size: 13px; font-weight: 650; }
+.calls-body { overflow-x: auto; padding: 4px 10px 8px; max-height: 520px; overflow-y: auto; }
+.calls-body th { position: sticky; top: 0; background: var(--panel); }
+.tag { display: inline-flex; align-items: center; gap: 5px; }
+.tag i { width: 7px; height: 7px; border-radius: 2px; display: inline-block; }
+.muted { color: var(--ink-3); }
+.fresh { animation: flash 1.6s ease-out; }
+@keyframes flash { from { background: color-mix(in srgb, var(--good) 16%, transparent); } }
+.path { max-width: 260px; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+footer { margin-top: 18px; color: var(--ink-3); font-size: 11.5px; line-height: 1.6; }
+footer code { font-size: 11px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">
+    <img src="/assets/logo.svg" alt="" width="24" height="24">
+    Spoolup
+  </div>
+  <div class="status"><span class="dot" id="conn"></span><span id="conn-text" data-i18n="connecting">连接中…</span></div>
+  <button class="health" id="health" data-i18n-title="healthTitle" title="解析规则自检">
+    <span class="dot"></span><span id="health-text" data-i18n="health">规则自检</span>
+  </button>
+  <div class="spacer"></div>
+  <div class="seg" id="window" role="group" data-i18n-aria="timeWindow" aria-label="时间窗口">
+    <button data-w="3600" data-i18n="w3600">1 小时</button>
+    <button data-w="21600" data-i18n="w21600">6 小时</button>
+    <button data-w="86400" data-i18n="w86400">24 小时</button>
+    <button data-w="604800" data-i18n="w604800">7 天</button>
+    <button data-w="1209600" data-i18n="w1209600">14 天</button>
+  </div>
+  <div class="prefs">
+    <button class="icon-btn lang-btn" id="lang"></button>
+    <button class="icon-btn" id="theme" aria-label="切换主题">◐</button>
+  </div>
+</header>
+
+<section class="issues" id="issues" aria-live="polite"></section>
+
+<div class="agents">
+  <section class="agent" data-agent="claude"></section>
+  <section class="agent" data-agent="codex"></section>
+</div>
+
+<section class="wide">
+  <div class="wide-head">
+    <h2 data-i18n="trends">趋势</h2>
+    <span class="muted" id="trend-sub"></span>
+    <div class="spacer"></div>
+    <div class="legend" id="trend-legend"></div>
+  </div>
+  <div class="trends">
+    <div><div class="section-title"><span data-i18n="tpsMedian">TPS 中位数</span><span>t/s</span></div><div class="trend" id="trend-tps"></div></div>
+    <div><div class="section-title"><span data-i18n="ttftMedian">TTFT 中位数</span><span data-i18n="seconds">秒</span></div><div class="trend" id="trend-ttft"></div></div>
+  </div>
+</section>
+
+<section class="wide">
+  <div class="wide-head"><h2 data-i18n="byProject">按项目</h2><span class="muted" id="proj-sub"></span></div>
+  <div class="projects-body">
+    <table>
+      <thead><tr>
+        <th data-i18n="project">项目</th><th data-i18n="source">来源</th><th class="r" data-i18n="calls">调用</th><th class="r">TTFT P50</th><th class="r">TTFT P90</th>
+        <th class="r">TPS P50</th><th class="r" data-i18n="outTok">输出 tok</th><th class="r" data-i18n="cacheHit">缓存命中</th>
+      </tr></thead>
+      <tbody id="projects"></tbody>
+    </table>
+  </div>
+</section>
+
+<section class="calls">
+  <div class="calls-head">
+    <h2 data-i18n="recentCalls">最近调用</h2>
+    <div class="seg" id="filter" role="group" data-i18n-aria="source" aria-label="来源">
+      <button data-a="" data-i18n="all">全部</button>
+      <button data-a="claude">Claude Code</button>
+      <button data-a="codex">Codex</button>
+    </div>
+    <div class="spacer"></div>
+    <span class="muted" id="calls-count"></span>
+  </div>
+  <div class="calls-body">
+    <table>
+      <thead><tr>
+        <th data-i18n="time">时间</th><th data-i18n="source">来源</th><th data-i18n="model">模型</th><th class="r">TTFT</th><th class="r" data-i18n="duration">耗时</th>
+        <th class="r" data-i18n="outTok">输出 tok</th><th class="r">TPS</th><th class="r" data-i18n="inTok">输入 tok</th><th data-i18n="project">项目</th>
+      </tr></thead>
+      <tbody id="calls"></tbody>
+    </table>
+  </div>
+</section>
+
+<footer id="footer"></footer>
+
+<script>
+const AGENTS = {
+  claude: { name: 'Claude Code', color: 'var(--claude)' },
+  codex: { name: 'Codex', color: 'var(--codex)' },
+};
+// ---------- strings (zh / en)
+const STRINGS = {
+  zh: {
+    connecting: '连接中…', live: '实时', disconnected: '已断开，重连中…',
+    healthTitle: '解析规则自检', health: '规则自检', healthOk: '规则自检正常', offline: '采集服务无响应',
+    issueCount: (n, level) => `${n} 个${level === 'error' ? '错误' : '警告'}`,
+    reportSummary: (n, f) => `检查记录 ${n} 条 · 不影响主要统计，已写入 <code>${f}</code>`,
+    offlineDetail: m => `请求 /api/summary 失败：${m}。数据停在上次刷新。`,
+    level: { error: '错误', warn: '记录' },
+    timeWindow: '时间窗口', w3600: '1 小时', w21600: '6 小时', w86400: '24 小时', w604800: '7 天', w1209600: '14 天',
+    last: w => `近 ${w}`,
+    theme: { auto: '主题：跟随系统', dark: '主题：深色', light: '主题：浅色' }, langBtn: 'EN', langTitle: 'Switch to English',
+    trends: '趋势', tpsMedian: 'TPS 中位数', ttftMedian: 'TTFT 中位数', seconds: '秒',
+    trendSub: (w, b) => `近 ${w} · 每 ${b >= 60 ? b / 60 + ' 小时' : b + ' 分钟'}一个点`,
+    byProject: '按项目', projSub: w => `近 ${w} · 按调用数排序`,
+    project: '项目', source: '来源', calls: '调用', outTok: '输出 tok', inTok: '输入 tok', cacheHit: '缓存命中',
+    recentCalls: '最近调用', all: '全部', time: '时间', model: '模型', duration: '耗时', showing: n => `显示 ${n} 条`,
+    subagent: '子代理', ttftCodex: 'Codex 自身记录的 TTFT', ttftBlock: '到第一个内容块的时间',
+    ago: (n, u) => `${n} ${{ s: '秒', m: '分钟', h: '小时', d: '天' }[u]}前`,
+    noData: '暂无数据', nCalls: n => `${n} 次调用`, latest: '最新', outTokN: v => `${v} 输出 tok`,
+    lastCall: t => `上次调用 ${t}`, noCalls: '暂无调用', inFlight: n => `${n} 个请求进行中`, idle: '空闲',
+    perCallTps: '每次调用 TPS', perCallTtft: '每次调用 TTFT', dashedMedian: '虚线 = 中位数', lastN: n => `最近 ${n} 次`,
+    tokens: w => `Token · 近 ${w}`, weighted: v => `加权 ${v} t/s`,
+    input: '输入', output: '输出', reasoning: '思考/推理',
+    byModel: '按模型 · 点一行只看该模型', showAll: '显示全部', focusRow: '点击只看这个模型', noCallsWindow: '此时间窗口内没有调用',
+    trendCalls: n => `${n} 次`,
+    footer: (minTok, verified) => `数据来自 <code>~/.claude/projects</code> 与 <code>~/.codex/sessions</code> 中已有的时间戳，不经过代理、不发额外请求。
+      <b>TTFT</b>：请求发出 → 第一个内容块落盘（日志按块记时，因此为上界；Codex 每轮首个调用使用其自身记录的 <code>time_to_first_token_ms</code>）。
+      <b>TPS</b>：输出 token（含思考/推理）÷ 整个调用耗时，即端到端吞吐。
+      聚合一律取中位数 / 分位数以抵消网络抖动；输出少于 ${minTok} token 的调用不计入 TPS 统计。<br>
+      以上都是基于两者日志格式的<b>推断规则</b>（已在 ${verified} 上验证）。服务会持续自检：解析失败、响应块对不上请求、
+      用量记录缺失、数值异常都会显示在顶部，而不是悄悄算错。`,
+  },
+  en: {
+    connecting: 'Connecting…', live: 'Live', disconnected: 'Disconnected, reconnecting…',
+    healthTitle: 'Parsing-rule self-check', health: 'Self-check', healthOk: 'Self-check OK', offline: 'Collector not responding',
+    issueCount: (n, level) => `${n} ${level === 'error' ? 'error' : 'warning'}${n === 1 ? '' : 's'}`,
+    reportSummary: (n, f) => `${n} diagnostic record${n === 1 ? '' : 's'} · minor, also written to <code>${f}</code>`,
+    offlineDetail: m => `Request to /api/summary failed: ${m}. Data is from the last refresh.`,
+    level: { error: 'Error', warn: 'Record' },
+    timeWindow: 'Time window', w3600: '1h', w21600: '6h', w86400: '24h', w604800: '7d', w1209600: '14d',
+    last: w => `Last ${w}`,
+    theme: { auto: 'Theme: system', dark: 'Theme: dark', light: 'Theme: light' }, langBtn: '中', langTitle: '切换到中文',
+    trends: 'Trends', tpsMedian: 'Median TPS', ttftMedian: 'Median TTFT', seconds: 'sec',
+    trendSub: (w, b) => `Last ${w} · one point per ${b >= 60 ? (b / 60 === 1 ? 'hour' : b / 60 + ' hours') : b + ' min'}`,
+    byProject: 'By project', projSub: w => `Last ${w} · by call count`,
+    project: 'Project', source: 'Source', calls: 'Calls', outTok: 'Output tok', inTok: 'Input tok', cacheHit: 'Cache hit',
+    recentCalls: 'Recent calls', all: 'All', time: 'Time', model: 'Model', duration: 'Duration', showing: n => `Showing ${n}`,
+    subagent: 'subagent', ttftCodex: 'TTFT recorded by Codex', ttftBlock: 'Time to the first content block',
+    ago: (n, u) => `${n}${u} ago`,
+    noData: 'No data', nCalls: n => `${n} calls`, latest: 'Latest', outTokN: v => `${v} output tok`,
+    lastCall: t => `Last call ${t}`, noCalls: 'No calls yet', inFlight: n => `${n} in flight`, idle: 'Idle',
+    perCallTps: 'TPS per call', perCallTtft: 'TTFT per call', dashedMedian: 'Dashed = median', lastN: n => `Last ${n}`,
+    tokens: w => `Tokens · last ${w}`, weighted: v => `Weighted ${v} t/s`,
+    input: 'Input', output: 'Output', reasoning: 'Reasoning',
+    byModel: 'By model · click a row to focus', showAll: 'Show all', focusRow: 'Show only this model', noCallsWindow: 'No calls in this window',
+    trendCalls: n => `${n} call${n === 1 ? '' : 's'}`,
+    footer: (minTok, verified) => `Data comes from timestamps already in <code>~/.claude/projects</code> and <code>~/.codex/sessions</code>: no proxy, no extra requests.
+      <b>TTFT</b>: request sent → first content block written (logs stamp each block when it finishes, so this is an upper bound; the first call of each Codex turn uses Codex's own <code>time_to_first_token_ms</code>).
+      <b>TPS</b>: output tokens (including thinking/reasoning) ÷ total call time, i.e. end-to-end throughput.
+      Aggregates use medians / percentiles to absorb network jitter; calls with fewer than ${minTok} output tokens are left out of TPS stats.<br>
+      All of this is <b>inferred</b> from both tools' log formats (verified on ${verified}). The collector checks itself continuously: parse failures,
+      blocks that match no request, missing usage records and implausible values show up at the top instead of silently skewing the numbers.`,
+  },
+};
+const WINDOW_WORDS_EN = { 3600: '1 hour', 21600: '6 hours', 86400: '24 hours', 604800: '7 days', 1209600: '14 days' };
+const store = (k, v) => { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch { return null; } };
+// ?w=<seconds> opens a specific window (used by the menu bar app's full dashboard).
+let windowSec = Number(new URLSearchParams(location.search).get('w')) || Number(store('spoolup.window')) || 3600;
+let filter = store('spoolup.filter') || '';
+// The language is shared with the menu bar app through the collector (/api/prefs); the local copy
+// only avoids a flash of the wrong language before the first summary. ?lang=en|zh pins this page.
+const urlLang = new URLSearchParams(location.search).get('lang');
+let lang = urlLang || store('spoolup.lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
+if (!STRINGS[lang]) lang = 'zh';
+const setLang = l => { if (l === lang || !STRINGS[l] || urlLang) return; lang = l; store('spoolup.lang', lang); applyLang(); };
+const saveLang = () => fetch('/api/prefs', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ lang }) }).catch(() => {});
+const t = (key, ...args) => { const v = STRINGS[lang][key]; return typeof v === 'function' ? v(...args) : v; };
+// Server issue texts come in both languages.
+const tr = (i, field) => (lang === 'en' && i[`${field}_en`]) || i[field];
+// Per-agent model focus ('' = all models), remembered across reloads.
+let modelSel = (() => { try { return JSON.parse(store('spoolup.models') || '{}'); } catch { return {}; } })();
+// The agent's stats, or the selected model's when it has calls in this window.
+const view = key => {
+  const a = summary.agents[key], m = a.models.find(m => m.model === modelSel[key]);
+  return m ? { ...a, ...m, focus: m.model } : { ...a, focus: null };
+};
+const swatch = (color, label) => `<span class="tag"><i style="background:${color}"></i>${label}</span>`;
+let summary = null;
+let callRows = [];
+
+// ---------- formatting
+const fmtMs = v => v == null ? '—' : v < 1000 ? `${Math.round(v)}<small>ms</small>` : `${(v / 1000).toFixed(v < 10000 ? 2 : 1)}<small>s</small>`;
+const fmtMsPlain = v => v == null ? '—' : v < 1000 ? `${Math.round(v)} ms` : `${(v / 1000).toFixed(v < 10000 ? 2 : 1)} s`;
+const fmtTps = v => v == null ? '—' : v >= 100 ? Math.round(v) : v.toFixed(1);
+const fmtTok = v => v == null ? '—' : v >= 1e9 ? (v / 1e9).toFixed(2) + 'B' : v >= 1e6 ? (v / 1e6).toFixed(2) + 'M' : v >= 1e4 ? (v / 1e3).toFixed(1) + 'k' : String(v);
+const fmtTime = ts => new Date(ts).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB', { hour12: false });
+const fmtDateTime = ts => {
+  const d = new Date(ts), today = new Date();
+  return d.toDateString() === today.toDateString() ? fmtTime(ts) : `${d.getMonth() + 1}/${d.getDate()} ${fmtTime(ts).slice(0, 5)}`;
+};
+const ago = ts => {
+  const s = Math.round((Date.now() - ts) / 1000);
+  return s < 60 ? t('ago', s, 's') : s < 3600 ? t('ago', Math.round(s / 60), 'm') : s < 86400 ? t('ago', Math.round(s / 3600), 'h') : t('ago', Math.round(s / 86400), 'd');
+};
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Home directory → ~ (macOS /Users/x, Linux /home/x, Windows C:\Users\x).
+const tildePath = p => p.replace(/^(\/Users\/[^/]+|\/home\/[^/]+|[A-Za-z]:\\Users\\[^\\]+)/, '~');
+const shortModel = m => (m || 'unknown').replace(/^claude-/, '');
+// The window as a phrase ("1 小时" / "1 hour"); t('last', …) makes it "近 1 小时" / "Last 1 hour".
+const windowLabel = () => lang === 'en' ? WINDOW_WORDS_EN[windowSec] : t(`w${windowSec}`);
+
+// Charts (and the agent cards around them) are rebuilt on every data refresh, every few seconds.
+// Remember the pointer per chart key and replay it, so the snapped crosshair stays under the cursor.
+const hoverAt = {};
+function keepHover(key, svg, move, clear) {
+  svg.addEventListener('pointermove', e => { hoverAt[key] = e.clientX; move(e.clientX); });
+  svg.addEventListener('pointerleave', () => { delete hoverAt[key]; clear(); });
+  if (hoverAt[key] != null) move(hoverAt[key]);
+}
+
+// ---------- chart: single-series line with gradient fill, crosshair + tooltip
+function lineChart(el, pts, { color, fmt, unit, id }) {
+  const vals = pts.filter(p => p.v != null);
+  if (vals.length < 2) { el.innerHTML = `<div class="empty">${t('noData')}</div>`; return; }
+  const W = el.clientWidth || 400, H = el.clientHeight || 92, padT = 8, padB = 14, padL = 0, padR = 34;
+  const max = Math.max(...vals.map(p => p.v)) * 1.12 || 1;
+  const n = pts.length;
+  const x = i => padL + (n === 1 ? 0 : (i / (n - 1)) * (W - padL - padR));
+  const y = v => padT + (1 - v / max) * (H - padT - padB);
+  let d = '', area = '', started = false, firstX = 0, lastX = 0;
+  pts.forEach((p, i) => {
+    if (p.v == null) return;
+    const cmd = started ? 'L' : 'M';
+    if (!started) firstX = x(i);
+    d += `${cmd}${x(i).toFixed(1)},${y(p.v).toFixed(1)}`;
+    lastX = x(i); started = true;
+  });
+  area = `${d}L${lastX},${H - padB}L${firstX},${H - padB}Z`;
+  const ticks = [max / 1.12, max / 2.24].map(v => ({ v, y: y(v) }));
+  const med = [...vals.map(p => p.v)].sort((a, b) => a - b)[Math.floor(vals.length / 2)];
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${unit}">
+      <defs><linearGradient id="g-${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="${color}" stop-opacity=".28"/><stop offset="1" stop-color="${color}" stop-opacity="0"/>
+      </linearGradient></defs>
+      ${ticks.map(t => `<line x1="0" x2="${W - padR}" y1="${t.y}" y2="${t.y}" stroke="var(--grid)" stroke-width="1"/>
+        <text x="${W - padR + 5}" y="${t.y + 3.5}" font-size="10" fill="var(--ink-3)" class="num">${fmt(t.v)}</text>`).join('')}
+      <line x1="0" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}" stroke="var(--line)" stroke-width="1"/>
+      <line x1="0" x2="${W - padR}" y1="${y(med)}" y2="${y(med)}" stroke="${color}" stroke-width="1" stroke-dasharray="3 3" opacity=".55"/>
+      <path d="${area}" fill="url(#g-${id})"/>
+      <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <line class="xh" y1="${padT}" y2="${H - padB}" stroke="var(--ink-3)" stroke-width="1" opacity="0"/>
+      <circle class="mk" r="4" fill="${color}" stroke="var(--panel)" stroke-width="2" opacity="0"/>
+      <text x="0" y="${H - 2}" font-size="10" fill="var(--ink-3)">${t('nCalls', pts.length)}</text>
+      <text x="${W - padR}" y="${H - 2}" font-size="10" fill="var(--ink-3)" text-anchor="end">${t('latest')}</text>
+    </svg><div class="tip"></div>`;
+  const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), xh = svg.querySelector('.xh'), mk = svg.querySelector('.mk');
+  const move = clientX => {
+    const r = svg.getBoundingClientRect();
+    const px = (clientX - r.left) * (W / r.width);
+    let best = -1, bd = Infinity;
+    pts.forEach((p, i) => { if (p.v != null && Math.abs(x(i) - px) < bd) { bd = Math.abs(x(i) - px); best = i; } });
+    if (best < 0) return;
+    const p = pts[best];
+    xh.setAttribute('x1', x(best)); xh.setAttribute('x2', x(best)); xh.setAttribute('opacity', '.5');
+    mk.setAttribute('cx', x(best)); mk.setAttribute('cy', y(p.v)); mk.setAttribute('opacity', '1');
+    tip.innerHTML = `<b class="num">${fmt(p.v)}</b> ${unit}<br><span class="muted">${esc(shortModel(p.model))} · ${fmtDateTime(p.ts)}</span>${p.out != null ? `<br><span class="muted num">${t('outTokN', fmtTok(p.out))}</span>` : ''}`;
+    tip.style.display = 'block';
+    const left = (x(best) / W) * r.width;
+    tip.style.left = Math.min(Math.max(0, left - tip.offsetWidth / 2), r.width - tip.offsetWidth) + 'px';
+    tip.style.top = (-tip.offsetHeight - 6) + 'px';
+  };
+  keepHover(id, svg, move, () => { tip.style.display = 'none'; xh.setAttribute('opacity', '0'); mk.setAttribute('opacity', '0'); });
+}
+
+// ---------- agent panels
+function renderAgent(key) {
+  const all = summary.agents[key], a = view(key), meta = AGENTS[key];
+  const el = document.querySelector(`.agent[data-agent="${key}"]`);
+  const live = a.live.length;
+  const maxTps = Math.max(1, ...all.models.map(m => m.tps_p50 || 0));
+  el.innerHTML = `
+    <div class="agent-head">
+      <span class="swatch" style="background:${meta.color}"></span>
+      <h2>${meta.name}</h2>
+      <span class="sub">${a.last ? t('lastCall', ago(a.last.ts)) : t('noCalls')}</span>
+      <span class="live-pill"><span class="dot ${live ? 'on' : ''}"></span>${live ? t('inFlight', live) : t('idle')}</span>
+    </div>
+    <div class="heroes">
+      <div class="hero"><div class="label">TTFT · P50</div><div class="value num">${fmtMs(a.ttft_p50)}</div><div class="hint num">P90 ${fmtMsPlain(a.ttft_p90)}</div></div>
+      <div class="hero"><div class="label">TPS · P50</div><div class="value num">${fmtTps(a.tps_p50)}<small>t/s</small></div><div class="hint num">P10 ${fmtTps(a.tps_p10)} · P90 ${fmtTps(a.tps_p90)}</div></div>
+      <div class="hero"><div class="label">${t('calls')}</div><div class="value num">${a.calls}</div><div class="hint">${t('last', windowLabel())}${a.focus ? ' · ' + esc(shortModel(a.focus)) : ''}</div></div>
+    </div>
+    <div class="section">
+      <div class="section-title"><span>${t('perCallTps')}${a.focus ? ' · ' + esc(shortModel(a.focus)) : ''}</span><span>${t('dashedMedian')}</span></div>
+      <div class="chart" data-c="tps"></div>
+    </div>
+    <div class="section">
+      <div class="section-title"><span>${t('perCallTtft')}${a.focus ? ' · ' + esc(shortModel(a.focus)) : ''}</span><span>${t('lastN', a.recent.length)}</span></div>
+      <div class="chart" data-c="ttft"></div>
+    </div>
+    <div class="section">
+      <div class="section-title"><span>${t('tokens', windowLabel())}</span><span class="num">${t('weighted', fmtTps(a.tps_weighted))}</span></div>
+      <div class="kv num">
+        <div><span class="k">${t('input')}</span><span class="v">${fmtTok(a.input_tokens)}</span></div>
+        <div><span class="k">${t('cacheHit')}</span><span class="v">${a.input_tokens ? Math.round(100 * a.cached_tokens / a.input_tokens) + '%' : '—'}</span></div>
+        <div><span class="k">${t('output')}</span><span class="v">${fmtTok(a.output_tokens)}</span></div>
+        <div><span class="k">${t('reasoning')}</span><span class="v">${fmtTok(a.reasoning_tokens)}</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title"><span>${t('byModel')}</span>${a.focus ? `<button class="link" data-model="">${t('showAll')}</button>` : '<span></span>'}</div>
+      ${all.models.length ? `<table style="--accent:${meta.color}">
+        <thead><tr><th>${t('model')}</th><th class="r">${t('calls')}</th><th class="r">TTFT P50</th><th class="r">TPS P50</th></tr></thead>
+        <tbody>${all.models.map(m => `<tr class="pickable ${a.focus === m.model ? 'picked' : ''}" data-model="${esc(m.model)}" title="${t('focusRow')}">
+          <td>${esc(shortModel(m.model))}</td>
+          <td class="r num">${m.calls}</td>
+          <td class="r num">${fmtMsPlain(m.ttft_p50)}</td>
+          <td class="r num"><div class="bar-cell"><span class="mini-bar" style="width:${Math.round(44 * (m.tps_p50 || 0) / maxTps)}px;background:${meta.color}"></span>${fmtTps(m.tps_p50)}</div></td>
+        </tr>`).join('')}</tbody></table>` : `<div class="muted" style="font-size:12px">${t('noCallsWindow')}</div>`}
+    </div>`;
+  // Model buttons and model-table rows both switch the focus; clicking the focused row again clears it.
+  el.querySelectorAll('[data-model]').forEach(b => b.addEventListener('click', () => {
+    const m = b.dataset.model;
+    modelSel[key] = b.tagName === 'TR' && m === a.focus ? '' : m;
+    store('spoolup.models', JSON.stringify(modelSel));
+    renderAgent(key); renderTrends();
+  }));
+  const color = getComputedStyle(document.documentElement).getPropertyValue(`--${key}`).trim();
+  lineChart(el.querySelector('[data-c="tps"]'), a.recent.map(r => ({ v: r.out >= summary.min_tps_tokens ? r.tps : null, ts: r.ts, model: r.model, out: r.out })), { color, fmt: fmtTps, unit: 't/s', id: key + 't' });
+  lineChart(el.querySelector('[data-c="ttft"]'), a.recent.map(r => ({ v: r.ttft, ts: r.ts, model: r.model, out: r.out })), { color, fmt: v => fmtMsPlain(v).replace(' ', ''), unit: 'TTFT', id: key + 'f' });
+}
+
+// ---------- trend: two series over time, shared crosshair, legend above + end labels
+let clipSeq = 0;
+function trendChart(el, key, fmt) {
+  const t1 = summary.now, t0 = t1 - summary.window * 1000;
+  const bucket = summary.agents.claude.bucket_ms;
+  // Buckets are aligned to round boundaries, so the first one can start before the window;
+  // plot each at its midpoint, clamped into the window.
+  const plot = history => history.filter(h => h[key] != null)
+    .map(h => ({ ts: Math.min(Math.max(h.ts + bucket / 2, t0), t1), v: h[key], n: h.calls }));
+  const series = trendSeries().map(s => ({ ...s, pts: plot(s.history) })).filter(s => s.pts.length);
+  const all = series.flatMap(s => s.pts);
+  if (all.length < 2) { el.innerHTML = `<div class="empty" style="position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3)">${t('noData')}</div>`; return; }
+  const W = el.clientWidth, H = el.clientHeight, padT = 10, padB = 20, padR = 92, padL = 40;
+  const max = Math.max(...all.map(p => p.v)) * 1.1 || 1;
+  const x = ts => padL + ((ts - t0) / (t1 - t0)) * (W - padR - padL);
+  const y = v => padT + (1 - v / max) * (H - padT - padB);
+  const ticks = [1 / 3, 2 / 3, 1].map(f => f * max / 1.1);
+  const xt = [0, 0.25, 0.5, 0.75, 1].map(f => t0 + f * (t1 - t0));
+  const xfmt = ts => summary.window > 86400
+    ? `${new Date(ts).getMonth() + 1}/${new Date(ts).getDate()}`
+    : new Date(ts).toLocaleTimeString(lang === 'zh' ? 'zh-CN' : 'en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
+  // Consecutive buckets: solid line. Across idle gaps: faint dashed bridge, so sparse
+  // data still reads as one series instead of scattered fragments.
+  const gap = (a, b) => b.ts - a.ts > bucket * 1.5;
+  const pt = p => `${x(p.ts).toFixed(1)},${y(p.v).toFixed(1)}`;
+  const solid = pts => pts.map((p, i) => `${i && !gap(pts[i - 1], p) ? 'L' : 'M'}${pt(p)}`).join('');
+  const bridges = pts => pts.slice(1).map((p, i) => gap(pts[i], p) ? `M${pt(pts[i])}L${pt(p)}` : '').join('');
+  const clip = `trend-clip-${++clipSeq}`;
+  el.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img">
+    <defs><clipPath id="${clip}"><rect x="${padL - 4}" y="0" width="${W - padR - padL + 8}" height="${H - padB + 4}"/></clipPath></defs>
+    ${ticks.map(v => `<line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" stroke="var(--grid)"/>
+      <text x="${padL - 8}" y="${y(v) + 3.5}" font-size="10" fill="var(--ink-3)" text-anchor="end" class="num">${fmt(v)}</text>`).join('')}
+    <line x1="${padL}" x2="${W - padR}" y1="${H - padB}" y2="${H - padB}" stroke="var(--line)"/>
+    ${xt.map((ts, i) => `<text x="${x(ts)}" y="${H - 5}" font-size="10" fill="var(--ink-3)" text-anchor="${i === 0 ? 'start' : i === 4 ? 'end' : 'middle'}" class="num">${xfmt(ts)}</text>`).join('')}
+    <g clip-path="url(#${clip})">
+    ${series.map(s => `<path d="${bridges(s.pts)}" fill="none" stroke="${s.color}" stroke-width="1.5" stroke-dasharray="2 4" stroke-linecap="round" opacity=".45"/>
+      <path d="${solid(s.pts)}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      ${s.pts.map(p => `<circle cx="${x(p.ts)}" cy="${y(p.v)}" r="2.5" fill="${s.color}" stroke="var(--panel)" stroke-width="1.5"/>`).join('')}`).join('')}
+    </g>
+    ${(() => {
+      // End labels, nudged apart when they'd collide.
+      // Direct labels only while they stay readable; past 4 series the legend carries identity.
+      if (series.length > 4) return '';
+      const ends = series.map(s => ({ s, y: y(s.pts.at(-1).v) })).sort((a, b) => a.y - b.y);
+      for (let i = 1; i < ends.length; i++) ends[i].y = Math.max(ends[i].y, ends[i - 1].y + 13);
+      const over = ends.length ? ends.at(-1).y - (H - padB) : 0;
+      if (over > 0) ends.forEach(e => e.y -= over);
+      // Right-gutter labels at each series' latest value.
+      return ends.map(e => `<text x="${W - padR + 8}" y="${e.y + 3.5}" font-size="10.5" fill="var(--ink-2)">${esc(e.s.short)}</text>`).join('');
+    })()}
+    <line class="xh" y1="${padT}" y2="${H - padB}" stroke="var(--ink-3)" opacity="0"/>
+    ${series.map((s, i) => `<circle class="mk-${i}" r="4" fill="${s.color}" stroke="var(--panel)" stroke-width="2" opacity="0"/>`).join('')}
+  </svg><div class="tip"></div>`;
+  const svg = el.querySelector('svg'), tip = el.querySelector('.tip'), xh = svg.querySelector('.xh');
+  const move = clientX => {
+    const r = svg.getBoundingClientRect();
+    const ts = t0 + ((clientX - r.left) * (W / r.width) - padL) / (W - padR - padL) * (t1 - t0);
+    // Snap to the nearest point of any series (however far, so idle gaps still snap),
+    // then show each series' value in that same bucket.
+    let anchor = null;
+    for (const p of all) if (!anchor || Math.abs(p.ts - ts) < Math.abs(anchor.ts - ts)) anchor = p;
+    if (!anchor) { tip.style.display = 'none'; return; }
+    const near = series.map(s => ({ s, p: s.pts.find(p => Math.abs(p.ts - anchor.ts) < bucket / 2) || null }));
+    xh.setAttribute('x1', x(anchor.ts)); xh.setAttribute('x2', x(anchor.ts)); xh.setAttribute('opacity', '.5');
+    near.forEach(({ s, p }, i) => {
+      const mk = svg.querySelector(`.mk-${i}`);
+      if (p) { mk.setAttribute('cx', x(p.ts)); mk.setAttribute('cy', y(p.v)); mk.setAttribute('opacity', '1'); } else mk.setAttribute('opacity', '0');
+    });
+        tip.innerHTML = `<span class="muted">${fmtDateTime(anchor.ts)}</span>` + near.map(({ s, p }) =>
+      `<br>${swatch(s.color, esc(s.name))} <b class="num">${p ? fmt(p.v) : '—'}</b>${p ? ` <span class="muted num">· ${t('trendCalls', p.n)}</span>` : ''}`).join('');
+    tip.style.display = 'block';
+    const left = (x(anchor.ts) / W) * r.width;
+    tip.style.left = Math.min(Math.max(0, left + 12), r.width - tip.offsetWidth) + 'px';
+    tip.style.top = '4px';
+  };
+  keepHover(el.id, svg, move, () => { tip.style.display = 'none'; xh.setAttribute('opacity', '0'); svg.querySelectorAll('[class^="mk-"]').forEach(m => m.setAttribute('opacity', '0')); });
+}
+
+// One series per agent, following each card's model focus.
+function trendSeries() {
+  return Object.keys(AGENTS).map(k => {
+    const v = view(k);
+    return { name: AGENTS[k].name + (v.focus ? ' · ' + shortModel(v.focus) : ''), short: v.focus ? shortModel(v.focus) : AGENTS[k].name, color: AGENTS[k].color, history: v.history || [] };
+  });
+}
+
+function renderTrends() {
+  document.getElementById('trend-legend').innerHTML = trendSeries()
+    .map(s => `<span><i style="background:${s.color}"></i>${esc(s.name)}</span>`).join('');
+  const b = summary.agents.claude.bucket_ms / 60000;
+  document.getElementById('trend-sub').textContent = t('trendSub', windowLabel(), b);
+  trendChart(document.getElementById('trend-tps'), 'tps', fmtTps);
+  trendChart(document.getElementById('trend-ttft'), 'ttft', v => (v / 1000).toFixed(v < 10000 ? 1 : 0) + 's');
+}
+
+function renderProjects() {
+  const rows = Object.keys(AGENTS).flatMap(a => summary.agents[a].projects.map(p => ({ ...p, agent: a })))
+    .sort((a, b) => b.calls - a.calls).slice(0, 16);
+  document.getElementById('proj-sub').textContent = t('projSub', windowLabel());
+  const maxTps = Math.max(1, ...rows.map(r => r.tps_p50 || 0));
+  document.getElementById('projects').innerHTML = rows.length ? rows.map(p => `<tr>
+    <td><span class="path" title="${esc(p.project)}">${esc(tildePath(p.project))}</span></td>
+    <td><span class="tag"><i style="background:${AGENTS[p.agent].color}"></i>${AGENTS[p.agent].name}</span></td>
+    <td class="r num">${p.calls}</td>
+    <td class="r num">${fmtMsPlain(p.ttft_p50)}</td>
+    <td class="r num muted">${fmtMsPlain(p.ttft_p90)}</td>
+    <td class="r num"><div class="bar-cell"><span class="mini-bar" style="width:${Math.round(52 * (p.tps_p50 || 0) / maxTps)}px;background:${AGENTS[p.agent].color}"></span>${fmtTps(p.tps_p50)}</div></td>
+    <td class="r num">${fmtTok(p.output_tokens)}</td>
+    <td class="r num muted">${p.input_tokens ? Math.round(100 * p.cached_tokens / p.input_tokens) + '%' : '—'}</td>
+  </tr>`).join('') : `<tr><td colspan="8" class="muted">${t('noCallsWindow')}</td></tr>`;
+}
+
+function renderAll() {
+  renderAgent('claude'); renderAgent('codex'); renderTrends(); renderProjects();
+}
+
+function renderCalls() {
+  const rows = callRows.filter(c => !filter || c.agent === filter).slice(0, 300);
+  document.getElementById('calls-count').textContent = t('showing', rows.length);
+  document.getElementById('calls').innerHTML = rows.map(c => `
+    <tr class="${c._fresh ? 'fresh' : ''}">
+      <td class="num muted">${fmtDateTime(c.ts)}</td>
+      <td><span class="tag"><i style="background:${AGENTS[c.agent].color}"></i>${AGENTS[c.agent].name}${c.source === 'subagent' ? ` <span class="muted">· ${t('subagent')}</span>` : ''}</span></td>
+      <td>${esc(shortModel(c.model))}</td>
+      <td class="r num" title="${c.ttft_source === 'codex' ? t('ttftCodex') : t('ttftBlock')}">${fmtMsPlain(c.ttft_ms)}${c.ttft_source === 'codex' ? '' : '<span class="muted">*</span>'}</td>
+      <td class="r num">${fmtMsPlain(c.duration_ms)}</td>
+      <td class="r num">${fmtTok(c.output_tokens)}</td>
+      <td class="r num">${c.output_tokens >= (summary?.min_tps_tokens ?? 50) ? fmtTps(c.tps) : `<span class="muted">${fmtTps(c.tps)}</span>`}</td>
+      <td class="r num muted">${fmtTok(c.input_tokens)}</td>
+      <td class="muted"><span class="path" title="${esc(c.project)}">${esc(tildePath(c.project || ''))}</span></td>
+    </tr>`).join('');
+  callRows.forEach(c => delete c._fresh);
+}
+
+// ---------- data
+const LEVEL = { error: '✕', warn: '!' };
+const issueHtml = i => `<div class="issue ${i.level}">
+  <span class="ic" aria-label="${t('level')[i.level]}">${LEVEL[i.level]}</span>
+  <div class="t">${esc(tr(i, 'title'))}</div>
+  <div class="d">${esc(tr(i, 'detail'))}</div>
+  ${i.sample || i.file ? `<pre>${esc([i.file, tr(i, 'message'), i.sample].filter(Boolean).join('\n'))}</pre>` : ''}
+</div>`;
+let infoOpen = false;
+let lastHealth = null;
+function renderFooter() {
+  const v = summary ? `Claude Code ${summary.verified.claude.join('/')}${lang === 'zh' ? '、' : ', '}Codex ${summary.verified.codex.join('/')}` : '…';
+  document.getElementById('footer').innerHTML = t('footer', summary?.min_tps_tokens ?? 50, esc(v));
+}
+function renderHealth(status, issues) {
+  const btn = document.getElementById('health');
+  btn.className = `health ${status}`;
+  // Only errors are loud; warnings are folded into the diagnostic record below.
+  const n = issues.filter(i => i.level === 'error').length;
+  document.getElementById('health-text').textContent =
+    status === 'ok' ? t('healthOk') : status === 'offline' ? t('offline') : t('issueCount', n, status);
+  const loud = issues.filter(i => i.level === 'error'), quiet = issues.filter(i => i.level !== 'error');
+  const el = document.getElementById('issues');
+  infoOpen = el.querySelector('details')?.open ?? infoOpen;
+  el.innerHTML = loud.map(issueHtml).join('') +
+    (quiet.length ? `<details ${infoOpen ? 'open' : ''}><summary>${t('reportSummary', quiet.length, esc(summary?.report_file ?? '~/.spoolup/report.log'))}</summary>${quiet.map(issueHtml).join('')}</details>` : '');
+}
+document.getElementById('health').addEventListener('click', () => {
+  const d = document.querySelector('#issues details'); if (d) d.open = !d.open;
+  document.getElementById('issues').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+});
+
+async function loadSummary() {
+  try {
+    const r = await fetch(`/api/summary?window=${windowSec}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    summary = await r.json();
+  } catch (e) {
+    lastHealth = ['offline', [{ level: 'error', title: STRINGS.zh.offline, title_en: STRINGS.en.offline,
+      detail: STRINGS.zh.offlineDetail(e.message), detail_en: STRINGS.en.offlineDetail(e.message) }]];
+    renderHealth(...lastHealth);
+    return;
+  }
+  // Follow the shared language; the first page to run without one sets it.
+  if (summary.lang) setLang(summary.lang); else if (!urlLang) saveLang();
+  lastHealth = [summary.status, summary.issues];
+  renderFooter();
+  renderHealth(...lastHealth);
+  renderAll();
+}
+async function loadCalls() {
+  callRows = await (await fetch('/api/calls?limit=500')).json();
+  renderCalls();
+}
+
+let pendingRefresh = null;
+const refreshSoon = () => { clearTimeout(pendingRefresh); pendingRefresh = setTimeout(loadSummary, 400); };
+
+function connect() {
+  const es = new EventSource('/api/events');
+  const conn = document.getElementById('conn'), txt = document.getElementById('conn-text');
+  es.onopen = () => { conn.classList.add('on'); txt.textContent = t('live'); txt.dataset.state = 'live'; };
+  es.onerror = () => { conn.classList.remove('on'); txt.textContent = t('disconnected'); txt.dataset.state = 'disconnected'; };
+  es.addEventListener('call', e => {
+    const c = JSON.parse(e.data);
+    const i = callRows.findIndex(r => r.id === c.id);
+    if (i >= 0) callRows[i] = c; else { c._fresh = true; callRows.unshift(c); callRows.length = Math.min(callRows.length, 500); }
+    renderCalls(); refreshSoon();
+  });
+  es.addEventListener('ready', () => { loadSummary(); loadCalls(); });
+  es.addEventListener('prefs', e => setLang(JSON.parse(e.data).lang));
+}
+
+// ---------- controls
+function syncSeg(id, attr, value) {
+  document.querySelectorAll(`#${id} button`).forEach(b => b.setAttribute('aria-pressed', String(b.dataset[attr] === String(value))));
+}
+document.getElementById('window').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  windowSec = Number(b.dataset.w); store('spoolup.window', windowSec); syncSeg('window', 'w', windowSec); loadSummary();
+});
+document.getElementById('filter').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  filter = b.dataset.a; store('spoolup.filter', filter); syncSeg('filter', 'a', filter); renderCalls();
+});
+const themes = ['auto', 'dark', 'light'];
+let theme = store('spoolup.theme') || 'auto';
+const applyTheme = () => {
+  if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme').title = t('theme')[theme];
+  document.getElementById('theme').setAttribute('aria-label', t('theme')[theme]);
+};
+document.getElementById('theme').addEventListener('click', () => {
+  theme = themes[(themes.indexOf(theme) + 1) % 3]; store('spoolup.theme', theme); applyTheme(); if (summary) renderAll();
+});
+// Static text carries data-i18n keys; everything else re-renders.
+function applyLang() {
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+  document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  document.querySelectorAll('[data-i18n-aria]').forEach(el => el.setAttribute('aria-label', t(el.dataset.i18nAria)));
+  const conn = document.getElementById('conn-text');
+  if (conn.dataset.state) conn.textContent = t(conn.dataset.state);
+  const b = document.getElementById('lang');
+  b.textContent = t('langBtn'); b.title = t('langTitle'); b.setAttribute('aria-label', t('langTitle'));
+  applyTheme();
+  renderFooter();
+  if (lastHealth) renderHealth(...lastHealth);
+  if (summary) renderAll();
+  renderCalls();
+}
+document.getElementById('lang').addEventListener('click', () => {
+  lang = lang === 'zh' ? 'en' : 'zh'; store('spoolup.lang', lang); applyLang(); saveLang();
+});
+let resizeT;
+window.addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => summary && renderAll(), 150); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => summary && renderAll());
+
+applyLang();
+syncSeg('window', 'w', windowSec);
+syncSeg('filter', 'a', filter);
+loadSummary(); loadCalls(); connect();
+// Keep "x 秒前" and in-flight counts fresh even when nothing new lands.
+setInterval(loadSummary, 5000);
+</script>
+</body>
+</html>
