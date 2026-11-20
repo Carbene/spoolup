@@ -208,7 +208,7 @@ const CODEX_OUTPUT = /^(reasoning|message:assistant|.*_call)$/;
 // Items that are neither request inputs nor model output.
 
 function codexParser(file) {
-  const st = { model: null, cwd: null, start: null, first: null, turnCalls: [] };
+  const st = { model: null, cwd: null, start: null, first: null, turnCalls: [], id: null, fork: false, recs: 0 };
   return line => {
     const head = line.slice(0, 400);
     const tm = head.match(/^\{\s*"timestamp"\s*:\s*"([^"]+)"/);
@@ -231,6 +231,13 @@ function codexParser(file) {
       else if (CODEX_OUTPUT.test(k)) { if (st.start != null) st.first ??= t; }
       return;
     }
+    if (type === 'session_meta') {
+      // A forked session replays its parent's history (token_count included, token_usage_record not)
+      // under the parent's session_meta; those calls are counted in the parent's own file.
+      const id = head.match(/"id"\s*:\s*"([^"]+)"/)?.[1] ?? JSON.parse(line).payload?.id;
+      if (st.id == null) st.id = id; else if (id && id !== st.id) st.fork = true;
+      return;
+    }
     if (type === 'turn_context') {
       const p = JSON.parse(line).payload;
       st.model = intern(p.model) || st.model; st.cwd = intern(p.cwd) || st.cwd;
@@ -238,7 +245,8 @@ function codexParser(file) {
     }
     if (type === 'event_msg' && ptype === 'token_count') {
       // Codex writes one per API call alongside token_usage_record — the drift alarm's denominator.
-      if (/"last_token_usage"\s*:\s*\{/.test(line)) note('codex.token_count', t);
+      // In a fork, skip the replayed prefix: count only once this file has written its own records.
+      if (/"last_token_usage"\s*:\s*\{/.test(line) && (!st.fork || st.recs > 0)) note('codex.token_count', t);
       return;
     }
     if (type === 'event_msg' && ptype === 'task_started') {
@@ -261,7 +269,7 @@ function codexParser(file) {
       const id = 'x:' + (p.response_id || `${file}:${t}`);
       const u = p.usage || {};
       // Forked/resumed sessions replay history; keep the first sighting.
-      note('codex.record', t);
+      note('codex.record', t); st.recs++;
       if (!p.response_id) note('codex.no_response_id', t, { file, message: ['token_usage_record 缺少 response_id，去重退化为按文件+时间', 'token_usage_record lacks response_id; deduplicating by file + time instead'] });
       if (!calls.has(id)) {
         if (st.start == null) note('codex.no_start', t, { file, message: ['调用前没有找到输入项（user 消息 / 工具输出），起点用结束时间代替', 'No input item (user message / tool output) before the call; using its end time as start'] });
